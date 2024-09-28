@@ -1,4 +1,4 @@
-Header header
+std_msgs/Header header
 
 geometry_msgs/Pose current_pose
 geometry_msgs/Pose reference_pose

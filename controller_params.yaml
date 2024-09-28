@@ -1,0 +1,153 @@
+cartesian_impedance_controller:
+  # Stiffness parameters
+  stiffness_translation_x:
+    type: double
+    description: "Translational stiffness in the x-direction"
+    default_value: 200
+    min: 0
+    max: 2000
+
+  stiffness_translation_y:
+    type: double
+    description: "Translational stiffness in the y-direction"
+    default_value: 200
+    min: 0
+    max: 2000
+
+  stiffness_translation_z:
+    type: double
+    description: "Translational stiffness in the z-direction"
+    default_value: 200
+    min: 0
+    max: 2000
+
+  stiffness_rotation_x:
+    type: double
+    description: "Rotational stiffness around the x-axis"
+    default_value: 20
+    min: 0
+    max: 300
+
+  stiffness_rotation_y:
+    type: double
+    description: "Rotational stiffness around the y-axis"
+    default_value: 20
+    min: 0
+    max: 300
+
+  stiffness_rotation_z:
+    type: double
+    description: "Rotational stiffness around the z-axis"
+    default_value: 20
+    min: 0
+    max: 300
+
+  nullspace_stiffness:
+    type: double
+    description: "Nullspace stiffness"
+    default_value: 0
+    min: 0
+    max: 50
+
+  # Damping parameters
+  damping_translation_x:
+    type: double
+    description: "Translational damping in the x-direction"
+    default_value: 1
+    min: 0
+    max: 1
+
+  damping_translation_y:
+    type: double
+    description: "Translational damping in the y-direction"
+    default_value: 1
+    min: 0
+    max: 1
+
+  damping_translation_z:
+    type: double
+    description: "Translational damping in the z-direction"
+    default_value: 1
+    min: 0
+    max: 1
+
+  damping_rotation_x:
+    type: double
+    description: "Rotational damping around the x-axis"
+    default_value: 1
+    min: 0
+    max: 1
+
+  damping_rotation_y:
+    type: double
+    description: "Rotational damping around the y-axis"
+    default_value: 1
+    min: 0
+    max: 1
+
+  damping_rotation_z:
+    type: double
+    description: "Rotational damping around the z-axis"
+    default_value: 1
+    min: 0
+    max: 1
+
+  nullspace_damping:
+    type: double
+    description: "Nullspace damping"
+    default_value: 1
+    min: 0
+    max: 1
+
+  update_damping_factors:
+    type: boolean
+    description: "Flag to update damping factors"
+    default_value: false
+
+  # Wrench parameters
+  wrench_f_x:
+    type: double
+    description: "Force in the x-direction"
+    default_value: 0
+    min: -30
+    max: 30
+
+  wrench_f_y:
+    type: double
+    description: "Force in the y-direction"
+    default_value: 0
+    min: -30
+    max: 30
+
+  wrench_f_z:
+    type: double
+    description: "Force in the z-direction"
+    default_value: 0
+    min: -30
+    max: 30
+
+  wrench_tau_x:
+    type: double
+    description: "Torque around the x-axis"
+    default_value: 0
+    min: -10
+    max: 10
+
+  wrench_tau_y:
+    type: double
+    description: "Torque around the y-axis"
+    default_value: 0
+    min: -10
+    max: 10
+
+  wrench_tau_z:
+    type: double
+    description: "Torque around the z-axis"
+    default_value: 0
+    min: -10
+    max: 10
+
+  apply_wrench:
+    type: boolean
+    description: "Flag to apply Cartesian wrench"
+    default_value: false

@@ -6,7 +6,7 @@
 #include <RBDyn/FV.h>
 #include <RBDyn/Jacobian.h>
 #include <SpaceVecAlg/Conversions.h>
-#include <mc_rbdyn_urdf/urdf.h>
+#include <RBDyn/parsers/urdf.h>
 #include <Eigen/Geometry>
 
 class rbdyn_wrapper
@@ -21,7 +21,7 @@ public:
   void init_rbdyn(const std::string &urdf_string, const std::string &end_effector)
   {
     // Convert URDF to RBDyn
-    _rbdyn_urdf = mc_rbdyn_urdf::rbdyn_from_urdf(urdf_string);
+    _rbdyn_urdf = rbd::parsers::from_urdf(urdf_string);
 
     _rbd_indices.clear();
 
@@ -44,37 +44,22 @@ public:
 
   Eigen::MatrixXd jacobian(const Eigen::VectorXd &q, const Eigen::VectorXd &dq)
   {
-    mc_rbdyn_urdf::URDFParserResult rbdyn_urdf = _rbdyn_urdf;
+    _rbdyn_urdf.mbc.zero(_rbdyn_urdf.mb);
 
-    rbdyn_urdf.mbc.zero(rbdyn_urdf.mb);
-
-    _update_urdf_state(rbdyn_urdf, q, dq);
+    _update_urdf_state(_rbdyn_urdf.mbc, q, dq);
 
     // Compute jacobian
-    rbd::Jacobian jac(rbdyn_urdf.mb, rbdyn_urdf.mb.body(_ef_index).name());
+    rbd::Jacobian jac(_rbdyn_urdf.mb, _rbdyn_urdf.mb.body(_ef_index).name());
 
-    // // TO-DO: Check if we need this
-    rbd::forwardKinematics(rbdyn_urdf.mb, rbdyn_urdf.mbc);
-    rbd::forwardVelocity(rbdyn_urdf.mb, rbdyn_urdf.mbc);
+    rbd::forwardKinematics(_rbdyn_urdf.mb, _rbdyn_urdf.mbc);
+    rbd::forwardVelocity(_rbdyn_urdf.mb, _rbdyn_urdf.mbc);
 
-    return jac.jacobian(rbdyn_urdf.mb, rbdyn_urdf.mbc);
+    return jac.jacobian(_rbdyn_urdf.mb, _rbdyn_urdf.mbc);
   }
 
-  EefState perform_fk(const Eigen::VectorXd &q) const
+  EefState perform_fk(const Eigen::VectorXd &q)
   {
-    mc_rbdyn_urdf::URDFParserResult rbdyn_urdf = _rbdyn_urdf;
-
-    Eigen::VectorXd q_low = Eigen::VectorXd::Ones(_rbd_indices.size());
-    Eigen::VectorXd q_high = q_low;
-
-    for (size_t i = 0; i < _rbd_indices.size(); i++)
-    {
-      size_t index = _rbd_indices[i];
-      q_low(i) = rbdyn_urdf.limits.lower[rbdyn_urdf.mb.joint(index).name()][0];
-      q_high(i) = rbdyn_urdf.limits.upper[rbdyn_urdf.mb.joint(index).name()][0];
-    }
-
-    rbdyn_urdf.mbc.zero(rbdyn_urdf.mb);
+    _rbdyn_urdf.mbc.zero(_rbdyn_urdf.mb);
 
     for (size_t i = 0; i < _rbd_indices.size(); i++)
     {
@@ -82,18 +67,12 @@ public:
       double jt = q[i];
       // wrap in [-pi,pi]
       jt = _wrap_angle(jt);
-      // enforce limits
-      if (jt < q_low(i))
-        jt = q_low(i);
-      if (jt > q_high(i))
-        jt = q_high(i);
-
-      rbdyn_urdf.mbc.q[rbd_index][0] = jt;
+      _rbdyn_urdf.mbc.q[rbd_index][0] = jt;
     }
 
-    rbd::forwardKinematics(rbdyn_urdf.mb, rbdyn_urdf.mbc);
+    rbd::forwardKinematics(_rbdyn_urdf.mb, _rbdyn_urdf.mbc);
 
-    sva::PTransformd tf = rbdyn_urdf.mbc.bodyPosW[_ef_index];
+    sva::PTransformd tf = _rbdyn_urdf.mbc.bodyPosW[_ef_index];
 
     Eigen::Matrix4d eig_tf = sva::conversions::toHomogeneous(tf);
     Eigen::Vector3d trans = eig_tf.col(3).head(3);
@@ -114,17 +93,16 @@ public:
   }
 
 private:
-  void _update_urdf_state(mc_rbdyn_urdf::URDFParserResult &rbdyn_urdf, const Eigen::VectorXd &q,
-                          const Eigen::VectorXd &dq)
+  void _update_urdf_state(rbd::MultiBodyConfig &mbc, const Eigen::VectorXd &q, const Eigen::VectorXd &dq)
   {
     for (size_t i = 0; i < _rbd_indices.size(); i++)
     {
       size_t rbd_index = _rbd_indices[i];
 
       if (q.size() > i)
-        rbdyn_urdf.mbc.q[rbd_index][0] = q[i];
+        mbc.q[rbd_index][0] = q[i];
       if (dq.size() > i)
-        rbdyn_urdf.mbc.alpha[rbd_index][0] = dq[i];
+        mbc.alpha[rbd_index][0] = dq[i];
     }
   }
 
@@ -146,7 +124,7 @@ private:
     return wrapped;
   }
 
-  mc_rbdyn_urdf::URDFParserResult _rbdyn_urdf;
+  rbd::parsers::ParserResult _rbdyn_urdf;
   std::vector<size_t> _rbd_indices;
   size_t _ef_index;
 };

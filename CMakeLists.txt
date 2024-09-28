@@ -1,100 +1,86 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(cartesian_impedance_controller)
 
 find_package(Boost 1.49 REQUIRED)
 find_package(PkgConfig)
-
-# Find RBDyn library and dependencies
 pkg_search_module(Eigen3 REQUIRED eigen3)
-pkg_check_modules(mc_rbdyn_urdf REQUIRED mc_rbdyn_urdf)
 pkg_check_modules(RBDyn REQUIRED RBDyn)
 pkg_check_modules(SpaceVecAlg REQUIRED SpaceVecAlg)
 pkg_check_modules(tinyxml2 REQUIRED tinyxml2)
 
-find_package(catkin REQUIRED COMPONENTS
-  actionlib
-  actionlib_msgs
-  control_msgs
-  controller_interface
-  controller_manager
-  dynamic_reconfigure
-  eigen_conversions
-  geometry_msgs
-  hardware_interface
-  message_generation
-  pluginlib
-  realtime_tools
-  roscpp
-  sensor_msgs
-  std_msgs
-  tf
-  tf_conversions
-  trajectory_msgs
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(control_msgs REQUIRED)
+find_package(controller_interface REQUIRED)
+find_package(controller_manager REQUIRED)
+find_package(hardware_interface REQUIRED)
+find_package(pluginlib REQUIRED)
+find_package(realtime_tools REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(trajectory_msgs REQUIRED)
+find_package(Boost REQUIRED)
+find_package(yaml-cpp REQUIRED)
+
+find_package(rosidl_default_generators REQUIRED)
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/ControllerConfig.msg"
+  "msg/ControllerState.msg"
+  DEPENDENCIES std_msgs geometry_msgs sensor_msgs
 )
 
-add_message_files(FILES
-  ControllerConfig.msg
-  ControllerState.msg
+ament_export_dependencies(rosidl_default_runtime)
+
+add_library(${PROJECT_NAME}_lib SHARED src/cartesian_impedance_controller.cpp)
+ament_target_dependencies(${PROJECT_NAME}_lib rclcpp std_msgs sensor_msgs geometry_msgs Boost Eigen3 SpaceVecAlg RBDyn tinyxml2 yaml-cpp)
+
+add_library(${PROJECT_NAME}_ros SHARED src/cartesian_impedance_controller_ros.cpp)
+ament_target_dependencies(${PROJECT_NAME}_ros rclcpp std_msgs sensor_msgs geometry_msgs control_msgs controller_interface controller_manager hardware_interface pluginlib realtime_tools tf2 tf2_geometry_msgs tf2_ros tf2_eigen trajectory_msgs Boost Eigen3 SpaceVecAlg RBDyn tinyxml2 yaml-cpp)
+
+target_include_directories(${PROJECT_NAME}_lib PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp>
+  $<INSTALL_INTERFACE:include>
+  ${Eigen3_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
+  ${SpaceVecAlg_INCLUDE_DIRS}
+  ${RBDyn_INCLUDE_DIRS}
+  ${tinyxml2_INCLUDE_DIRS}
 )
 
-generate_messages(
-DEPENDENCIES
-  std_msgs
-  geometry_msgs
-  sensor_msgs
+target_include_directories(${PROJECT_NAME}_ros PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp>
+  $<INSTALL_INTERFACE:include>
+  ${Eigen3_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
+  ${SpaceVecAlg_INCLUDE_DIRS}
+  ${RBDyn_INCLUDE_DIRS}
+  ${tinyxml2_INCLUDE_DIRS}
 )
 
-generate_dynamic_reconfigure_options(
-  cfg/damping.cfg
-  cfg/stiffness.cfg
-  cfg/wrench.cfg
-)
+target_link_libraries(${PROJECT_NAME}_lib ${Eigen3_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}_ros ${PROJECT_NAME}_lib ${Eigen3_LIBRARIES} ${Boost_LIBRARIES} ${tinyxml2_LIBRARIES} RBDyn)
 
-catkin_package(
-  INCLUDE_DIRS include
-  CATKIN_DEPENDS actionlib actionlib_msgs control_msgs controller_interface controller_manager dynamic_reconfigure eigen_conversions geometry_msgs hardware_interface message_runtime pluginlib realtime_tools roscpp sensor_msgs std_msgs tf tf_conversions trajectory_msgs
-  DEPENDS Boost Eigen3 mc_rbdyn_urdf RBDyn SpaceVecAlg tinyxml2
-  LIBRARIES ${PROJECT_NAME} ${PROJECT_NAME}_ros
-)
-
-###########
-## Build ##
-###########
-
-# Sets build type to "Release" in case no build type has not been set before. This is necessary to run this controller at 1 kHz.
-# On our RT system with an i5 11th Gen processor this reduces update evaluations from about 800 to 300 microseconds
-if(NOT CMAKE_BUILD_TYPE) 
-    set(CMAKE_BUILD_TYPE Release)
-endif(NOT CMAKE_BUILD_TYPE)
-
-# Core library
-add_library(${PROJECT_NAME} src/cartesian_impedance_controller.cpp)
-add_dependencies(
-  ${PROJECT_NAME}
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-)
-
-target_compile_options(${PROJECT_NAME} PUBLIC -std=c++14)
-target_include_directories(${PROJECT_NAME} PUBLIC include ${catkin_INCLUDE_DIRS} ${Eigen3_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${SpaceVecAlg_INCLUDE_DIRS} ${RBDyn_INCLUDE_DIRS} ${mc_rbdyn_urdf_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME} PUBLIC ${Eigen3_LIBRARIES})
-
-# ROS Integration
-add_library(${PROJECT_NAME}_ros src/cartesian_impedance_controller_ros.cpp)
-add_dependencies(
-  ${PROJECT_NAME}_ros
-  ${${PROJECT_NAME}_ros_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-  ${PROJECT_NAME}_gencfg
-)
-
-target_compile_options(${PROJECT_NAME}_ros PUBLIC -std=c++14)
-target_include_directories(${PROJECT_NAME}_ros PUBLIC include ${catkin_INCLUDE_DIRS} ${Eigen3_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${tinyxml2_INCLUDE_DIRS} ${SpaceVecAlg_INCLUDE_DIRS} ${RBDyn_INCLUDE_DIRS} ${mc_rbdyn_urdf_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME}_ros PUBLIC ${PROJECT_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${tinyxml2_LIBRARIES} RBDyn mc_rbdyn_urdf ${Eigen3_LIBRARIES})
-
-
-## Install project namespaced headers
 install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  DESTINATION include/${PROJECT_NAME}
   FILES_MATCHING PATTERN "*.h"
   PATTERN ".svn" EXCLUDE)
+
+install(TARGETS ${PROJECT_NAME}_lib ${PROJECT_NAME}_ros
+  EXPORT export_${PROJECT_NAME}
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include)
+
+ament_export_include_directories(include)
+ament_export_libraries(${PROJECT_NAME} ${PROJECT_NAME}_ros)
+ament_export_dependencies(rclcpp std_msgs sensor_msgs geometry_msgs control_msgs controller_interface controller_manager hardware_interface pluginlib realtime_tools tf2 tf2_geometry_msgs tf2_ros trajectory_msgs Boost Eigen3 SpaceVecAlg RBDyn tinyxml2)
+
+ament_package()

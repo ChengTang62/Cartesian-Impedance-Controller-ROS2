@@ -1,58 +1,59 @@
-<package>
+<?xml version="1.0"?>
+<package format="3">
   <name>cartesian_impedance_controller</name>
-  <version>1.0.0</version>
+  <version>1.1.1</version>
   <description>
     A Cartesian Impedance controller implementation
   </description>
-  <maintainer email="matthias.mayr@cs.lth.se">Matthias Mayr</maintainer>
-  <license>BSD</license>
+  <maintainer email="c225tang@uwaterloo.ca">Cheng Tang</maintainer>
+  <license>BSD-3-Clause</license>
 
   <author>Matthias Mayr</author>
   <author>Oussama Chouman</author>
+  <author>Julian Salt Ducaju</author>
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <build_depend>actionlib</build_depend>
-  <build_depend>actionlib_msgs</build_depend>
+  <build_depend>rclcpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
   <build_depend>control_msgs</build_depend>
   <build_depend>controller_interface</build_depend>
   <build_depend>controller_manager</build_depend>
-  <build_depend>dynamic_reconfigure</build_depend>
-  <build_depend>eigen</build_depend>
-  <build_depend>eigen_conversions</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>hardware_interface</build_depend>
-  <build_depend>message_generation</build_depend>
   <build_depend>pluginlib</build_depend>
   <build_depend>realtime_tools</build_depend>
-  <build_depend>roscpp</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>tf</build_depend>
-  <build_depend>tf_conversions</build_depend>
+  <build_depend>tf2</build_depend>
+  <build_depend>tf2_geometry_msgs</build_depend>
+  <build_depend>tf2_ros</build_depend>
+  <build_depend>tf2_eigen</build_depend>
   <build_depend>trajectory_msgs</build_depend>
+  <build_depend>rosidl_default_generators</build_depend>
 
-  <run_depend>actionlib</run_depend>
-  <run_depend>actionlib_msgs</run_depend>
-  <run_depend>control_msgs</run_depend>
-  <run_depend>controller_interface</run_depend>
-  <run_depend>controller_manager</run_depend>
-  <run_depend>dynamic_reconfigure</run_depend>
-  <run_depend>eigen_conversions</run_depend>
-  <run_depend>geometry_msgs</run_depend>
-  <run_depend>hardware_interface</run_depend>
-  <run_depend>message_runtime</run_depend>
-  <run_depend>pluginlib</run_depend>
-  <run_depend>realtime_tools</run_depend>
-  <run_depend>roscpp</run_depend>
-  <run_depend>sensor_msgs</run_depend>
-  <run_depend>std_msgs</run_depend>
-  <run_depend>tf</run_depend>
-  <run_depend>tf_conversions</run_depend>
-  <run_depend>trajectory_msgs</run_depend>
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>control_msgs</exec_depend>
+  <exec_depend>controller_interface</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>pluginlib</exec_depend>
+  <exec_depend>realtime_tools</exec_depend>
+  <exec_depend>tf2</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>trajectory_msgs</exec_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <exec_depend>tf2_eigen</exec_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
 
-   <export>
-    <!-- Other tools can request additional information be placed here -->
+  <export>
+    <build_type>ament_cmake</build_type>
     <controller_interface plugin="${prefix}/controller_plugins.xml"/>
   </export>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>eigen3_cmake_module</test_depend>
 </package>
