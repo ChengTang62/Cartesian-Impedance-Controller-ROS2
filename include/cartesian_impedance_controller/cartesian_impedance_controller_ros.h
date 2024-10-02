@@ -268,8 +268,8 @@ namespace cartesian_impedance_controller
     rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent>::SharedPtr parameter_event_subscriber_;
 
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;     //!< tf transformation listener
-    tf2_ros::Buffer tf_buffer_;
-    tf2_ros::TransformBroadcaster tf_broadcaster_;
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     std::string wrench_ee_frame_;           //!< Frame for the application of the commanded wrench 
 
     const double trans_stf_min_{0};     //!< Minimum translational stiffness
@@ -306,9 +306,4 @@ namespace cartesian_impedance_controller
 
     rclcpp::Time tf_last_time_; //!< Last published tf message
   };
-
-  // Declares this controller
-  PLUGINLIB_EXPORT_CLASS(cartesian_impedance_controller::CartesianImpedanceControllerRos,
-                         controller_interface::ControllerInterface);
-
 } // namespace cartesian_impedance_controller

@@ -34,13 +34,11 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES std_msgs geometry_msgs sensor_msgs
 )
 
-ament_export_dependencies(rosidl_default_runtime)
-
 add_library(${PROJECT_NAME}_lib SHARED src/cartesian_impedance_controller.cpp)
-ament_target_dependencies(${PROJECT_NAME}_lib rclcpp std_msgs sensor_msgs geometry_msgs Boost Eigen3 SpaceVecAlg RBDyn tinyxml2 yaml-cpp)
+ament_target_dependencies(${PROJECT_NAME}_lib rclcpp std_msgs sensor_msgs geometry_msgs Boost Eigen3 SpaceVecAlg RBDyn tinyxml2 rosidl_default_runtime)
 
 add_library(${PROJECT_NAME}_ros SHARED src/cartesian_impedance_controller_ros.cpp)
-ament_target_dependencies(${PROJECT_NAME}_ros rclcpp std_msgs sensor_msgs geometry_msgs control_msgs controller_interface controller_manager hardware_interface pluginlib realtime_tools tf2 tf2_geometry_msgs tf2_ros tf2_eigen trajectory_msgs Boost Eigen3 SpaceVecAlg RBDyn tinyxml2 yaml-cpp)
+ament_target_dependencies(${PROJECT_NAME}_ros rclcpp std_msgs sensor_msgs geometry_msgs control_msgs controller_interface controller_manager hardware_interface pluginlib realtime_tools tf2 tf2_geometry_msgs tf2_ros tf2_eigen trajectory_msgs Boost Eigen3 SpaceVecAlg RBDyn tinyxml2 rosidl_default_runtime)
 
 target_include_directories(${PROJECT_NAME}_lib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -65,7 +63,7 @@ target_include_directories(${PROJECT_NAME}_ros PUBLIC
 )
 
 target_link_libraries(${PROJECT_NAME}_lib ${Eigen3_LIBRARIES})
-target_link_libraries(${PROJECT_NAME}_ros ${PROJECT_NAME}_lib ${Eigen3_LIBRARIES} ${Boost_LIBRARIES} ${tinyxml2_LIBRARIES} RBDyn)
+target_link_libraries(${PROJECT_NAME}_ros ${PROJECT_NAME}_lib ${Eigen3_LIBRARIES} ${Boost_LIBRARIES} ${tinyxml2_LIBRARIES} RBDyn yaml-cpp)
 
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION include/${PROJECT_NAME}
@@ -79,8 +77,15 @@ install(TARGETS ${PROJECT_NAME}_lib ${PROJECT_NAME}_ros
   RUNTIME DESTINATION bin
   INCLUDES DESTINATION include)
 
+# Install plugin XML
+install(FILES controller_plugins.xml
+  DESTINATION share/plugin)
+
+# Export plugin information for pluginlib
+pluginlib_export_plugin_description_file(controller_interface controller_plugins.xml)
+
 ament_export_include_directories(include)
-ament_export_libraries(${PROJECT_NAME} ${PROJECT_NAME}_ros)
-ament_export_dependencies(rclcpp std_msgs sensor_msgs geometry_msgs control_msgs controller_interface controller_manager hardware_interface pluginlib realtime_tools tf2 tf2_geometry_msgs tf2_ros trajectory_msgs Boost Eigen3 SpaceVecAlg RBDyn tinyxml2)
+ament_export_libraries(${PROJECT_NAME}_lib ${PROJECT_NAME}_ros)
+ament_export_dependencies(rosidl_default_runtime rclcpp std_msgs sensor_msgs geometry_msgs control_msgs controller_interface controller_manager hardware_interface pluginlib realtime_tools tf2 tf2_geometry_msgs tf2_ros trajectory_msgs Boost Eigen3 SpaceVecAlg RBDyn tinyxml2)
 
 ament_package()
