@@ -87,6 +87,7 @@ namespace cartesian_impedance_controller
     controller_interface::return_type update(const rclcpp::Time & time, const rclcpp::Duration & period) override;
     controller_interface::InterfaceConfiguration command_interface_configuration() const override;
     controller_interface::InterfaceConfiguration state_interface_configuration() const override;
+    // void setFilterCoefficient(double cutoff_frequency, double dt);
 
 
   private:
@@ -249,8 +250,7 @@ namespace cartesian_impedance_controller
     void trajAcceptedCb(const std::shared_ptr<rclcpp_action::ServerGoalHandle<control_msgs::action::FollowJointTrajectory>> goal_handle);
     void execute(const std::shared_ptr<rclcpp_action::ServerGoalHandle<control_msgs::action::FollowJointTrajectory>> goal_handle);
     void trajUpdate();
-    void declareParametersFromYAML();
-    void declareParameters();
+    // void estimateVelocity(const rclcpp::Duration& period);
 
     std::vector<hardware_interface::LoanedCommandInterface> joint_command_handles_; 
     std::vector<hardware_interface::LoanedStateInterface> joint_state_handles_;
@@ -281,6 +281,13 @@ namespace cartesian_impedance_controller
     const double dmp_factor_min_{0.001};       //!< Minimum damping factor
     const double dmp_factor_max_{2.0};         //!< Maximum damping factor
 
+    // State variables for velocity filtering
+    Eigen::VectorXd prev_position_;         // Previous joint positions
+    Eigen::VectorXd velocity_;              // Current velocity
+    Eigen::VectorXd filtered_velocity_;     // Filtered velocity
+    Eigen::VectorXd prev_filtered_velocity_; // Previous filtered velocity
+    double alpha_;                          // Low-pass filter coefficient
+    
     // The Jacobian of RBDyn comes with orientation in the first three lines. Needs to be interchanged.
     const Eigen::VectorXi perm_indices_ =
       (Eigen::Matrix<int, 6, 1>() << 3, 4, 5, 0, 1, 2).finished(); //!< Permutation indices to switch position and orientation

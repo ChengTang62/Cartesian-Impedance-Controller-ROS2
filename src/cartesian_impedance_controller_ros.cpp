@@ -11,6 +11,11 @@ namespace cartesian_impedance_controller
   CartesianImpedanceControllerRos::CartesianImpedanceControllerRos() : traj_duration_(0, 0){}
   double saturateValue(double x, double x_min, double x_max){return std::min(std::max(x, x_min), x_max);}
 
+  // void setFilterCoefficient(double cutoff_frequency, double dt) {
+  //   double rc = 1.0 / (2 * M_PI * cutoff_frequency);
+  //   alpha_ = dt / (dt + rc);
+  // }
+
   void EigenVectorToWrench(const Eigen::Matrix<double, 6, 1> &v, geometry_msgs::msg::Wrench *wrench){
     wrench->force.x = v(0);
     wrench->force.y = v(1);
@@ -19,7 +24,7 @@ namespace cartesian_impedance_controller
     wrench->torque.y = v(4);
     wrench->torque.z = v(5);}
 
-bool CartesianImpedanceControllerRos::initJointHandles(){
+  bool CartesianImpedanceControllerRos::initJointHandles(){
     std::vector<std::string> joint_names;
     auto node = get_node();
 
@@ -29,35 +34,38 @@ bool CartesianImpedanceControllerRos::initJointHandles(){
         return false;}
     std::string hw_interface_type;
     node->get_parameter("hardware_interface", hw_interface_type);
+    RCLCPP_INFO(node->get_logger(), "Available state interfaces:");
+    for (const auto &interface : state_interfaces_) {
+        RCLCPP_INFO(node->get_logger(), "%s", interface.get_name().c_str());
+    }
     for (const auto &joint_name : joint_names){
-    try{
-        auto command_interface_handle = std::find_if(
-            command_interfaces_.begin(),
-            command_interfaces_.end(),
-            [&](const auto &command_interface) {
-                return command_interface.get_name() == joint_name &&
-                        command_interface.get_interface_name() == hw_interface_type;});
-        if (command_interface_handle == command_interfaces_.end()){
-            RCLCPP_ERROR(node->get_logger(), "Unable to get command interface for joint: %s", joint_name.c_str());
-            return false;}
-        joint_command_handles_.emplace_back(std::move(*command_interface_handle));
-        auto state_interface_handle = std::find_if(
-            state_interfaces_.begin(),
-            state_interfaces_.end(),
-            [&](const auto &state_interface) {
-                return state_interface.get_name() == joint_name &&
-                        state_interface.get_interface_name() == hw_interface_type;});
-        if (state_interface_handle == state_interfaces_.end()){
-            RCLCPP_ERROR(node->get_logger(), "Unable to get state interface for joint: %s", joint_name.c_str());
-            return false;}
-      joint_state_handles_.emplace_back(std::move(*state_interface_handle));}
+      RCLCPP_INFO(node->get_logger(), "Requesting interface: joint: %s, interface: %s", joint_name.c_str(), hw_interface_type.c_str());
+      try {
+          std::string full_interface_name = joint_name + "/" + hw_interface_type;
+          auto command_interface_handle = std::find_if(
+              command_interfaces_.begin(),
+              command_interfaces_.end(),
+              [&](const auto &command_interface) {
+                  return command_interface.get_name() == full_interface_name;});
+          if (command_interface_handle == command_interfaces_.end()) {
+              RCLCPP_ERROR(node->get_logger(), "Unable to get command interface: %s", full_interface_name.c_str());
+              return false;}
+          joint_command_handles_.emplace_back(std::move(*command_interface_handle));
+          auto state_interface_handle = std::find_if(
+              state_interfaces_.begin(),
+              state_interfaces_.end(),
+              [&](const auto &state_interface) {
+                  return state_interface.get_name() == full_interface_name;});
+          if (state_interface_handle == state_interfaces_.end()) {
+              RCLCPP_ERROR(node->get_logger(), "Unable to get state interface: %s", joint_name.c_str());
+              return false;}
+          joint_state_handles_.emplace_back(std::move(*state_interface_handle));} 
       catch (const std::exception &ex){
           RCLCPP_ERROR(node->get_logger(), "Exception getting joint handles: %s", ex.what());
           return false;}}
     RCLCPP_INFO(node->get_logger(), "Number of joints specified in parameters: %zu", joint_names.size());
     this->setNumberOfJoints(joint_names.size());
     return true;}
-
 
   bool CartesianImpedanceControllerRos::initMessaging(){
     auto node = get_node();
@@ -84,10 +92,10 @@ bool CartesianImpedanceControllerRos::initJointHandles(){
   bool CartesianImpedanceControllerRos::initRBDyn(){
     std::string urdf_string;
     auto node = get_node();
-    node->get_parameter("robot_description", robot_description_);
-    while (!node->get_parameter(robot_description_, urdf_string)){
-      RCLCPP_INFO_ONCE(node->get_logger(), "Waiting for robot description in parameter %s on the ROS param server.", robot_description_.c_str());
+    while (!node->get_parameter("robot_description", urdf_string)) {
+      RCLCPP_INFO_ONCE(node->get_logger(), "Waiting for 'robot_description' parameter to be available on the ROS parameter server.");
       std::this_thread::sleep_for(std::chrono::milliseconds(100));}
+    RCLCPP_INFO(node->get_logger(), "Robot description parameter received.");
     try{
       this->rbdyn_wrapper_.init_rbdyn(urdf_string, end_effector_);}
     catch (const std::runtime_error &e){
@@ -118,6 +126,7 @@ bool CartesianImpedanceControllerRos::initJointHandles(){
   controller_interface::CallbackReturn CartesianImpedanceControllerRos::on_init(){
       auto node = get_node();
       RCLCPP_INFO(node->get_logger(), "Initializing Cartesian Impedance Controller");
+      // setFilterCoefficient(50.0, 0.001); 
       try {
           tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());
           tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -126,7 +135,6 @@ bool CartesianImpedanceControllerRos::initJointHandles(){
           RCLCPP_ERROR(node->get_logger(), "Error initializing TF components: %s", e.what());
           return controller_interface::CallbackReturn::ERROR;
       }
-
       // parameter_event_subscriber_ = get_node()->create_subscription<rcl_interfaces::msg::ParameterEvent>(
       //     "/parameter_events",
       //     10,
@@ -135,15 +143,21 @@ bool CartesianImpedanceControllerRos::initJointHandles(){
 
   controller_interface::CallbackReturn CartesianImpedanceControllerRos::on_configure(const rclcpp_lifecycle::State & /*previous_state*/){
       auto node = get_node();
+      if (!node->get_parameter("end_effector", end_effector_)) {
+          RCLCPP_ERROR(node->get_logger(), "No 'end_effector' parameter provided, aborting configuration!");
+          return controller_interface::CallbackReturn::ERROR;}
+      RCLCPP_INFO(node->get_logger(), "End effector link: %s", end_effector_.c_str());
       if (!this->initMessaging() || !this->initRBDyn()){
           RCLCPP_ERROR(node->get_logger(), "Failed to configure Cartesian Impedance Controller.");
           return controller_interface::CallbackReturn::ERROR;}
+      RCLCPP_INFO(node->get_logger(), "Messaging and RBDyn initialized.");
       this->root_frame_ = this->rbdyn_wrapper_.root_link();
       if (this->n_joints_ < 6){RCLCPP_WARN(node->get_logger(), "Number of joints is below 6. Functions might be limited.");}
       if (this->n_joints_ < 7){RCLCPP_WARN(node->get_logger(), "Number of joints is below 7. No redundant joint for nullspace.");}
       this->tau_m_ = Eigen::VectorXd(this->n_joints_);
       bool enable_trajectories = true;
-      //TODO: implement dynamics reconfigure
+      RCLCPP_INFO(node->get_logger(), "Initializing trajectories.");
+      //TODO: implement dynamic reconfigure
       // if (dynamic_reconfigure && !this->initDynamicReconfigure()){
       //     RCLCPP_ERROR(node->get_logger(), "Failed to initialize dynamic reconfigure.");
       //     return controller_interface::CallbackReturn::ERROR;}
@@ -158,8 +172,11 @@ bool CartesianImpedanceControllerRos::initJointHandles(){
       if (!this->initJointHandles()){
           RCLCPP_ERROR(node->get_logger(), "Failed to initialize joint handles.");
           return controller_interface::CallbackReturn::ERROR;}
+      RCLCPP_INFO(node->get_logger(), "Initialized joint handles.");
       this->updateState();
+      RCLCPP_INFO(node->get_logger(), "State updated.");
       this->initDesiredPose(this->position_, this->orientation_);
+      RCLCPP_INFO(node->get_logger(), "Initialized desired pose.");
       this->initNullspaceConfig(this->q_);
       RCLCPP_INFO(node->get_logger(), "Started Cartesian Impedance Controller");
       return controller_interface::CallbackReturn::SUCCESS;}
@@ -201,6 +218,8 @@ controller_interface::InterfaceConfiguration CartesianImpedanceControllerRos::st
     get_node()->get_parameter("joints", joint_names);
     for (const auto &joint_name : joint_names) {
         state_interfaces_config.names.push_back(joint_name + "/position");
+        state_interfaces_config.names.push_back(joint_name + "/effort");
+        state_interfaces_config.names.push_back(joint_name + "/external_torque");
     }
     return state_interfaces_config;
 }
@@ -245,13 +264,30 @@ controller_interface::InterfaceConfiguration CartesianImpedanceControllerRos::st
     *jacobian = jacobian_perm_ * *jacobian;
     return true;}
 
-  void CartesianImpedanceControllerRos::updateState(){
-    for (size_t i = 0; i < this->n_joints_; ++i){
-      this->q_(i) = this->joint_state_handles_[i * 3 + 0].get_value();
-      this->dq_(i) = this->joint_state_handles_[i * 3 + 1].get_value();
-      this->tau_m_(i) = this->joint_state_handles_[i * 3 + 2].get_value();}
-    getJacobian(this->q_, this->dq_, &this->jacobian_);
+//new implementation
+void CartesianImpedanceControllerRos::updateState() {
+    auto node = get_node();
+    RCLCPP_INFO(node->get_logger(), "Updating State.");
+    // for (size_t i = 0; i < joint_state_handles_.size(); ++i){
+    //     const auto &handle = joint_state_handles_[i];
+    //     RCLCPP_INFO(node->get_logger(), "Joint handle [%zu]: Name: %s, Value: %f",
+    //                 i, handle.get_name().c_str(), handle.get_value());
+    // }
+    for (size_t i = 0; i < this->n_joints_; ++i) {
+        this->q_(i) = this->joint_state_handles_[i * 3 + 0].get_value();
+        this->tau_m_(i) = this->joint_state_handles_[i * 3 + 2].get_value();
+    }
+    // estimateVelocity(rclcpp::Duration(1.0 / 1000.0)); // 1 kHz loop
+    getJacobian(this->q_, filtered_velocity_, &this->jacobian_);
     getFk(this->q_, &this->position_, &this->orientation_);}
+
+  // void CartesianImpedanceControllerRos::estimateVelocity(const rclcpp::Duration& period) {
+  //   double dt = period.seconds();
+  //   for (size_t i = 0; i < this->n_joints_; ++i) {
+  //       velocity_(i) = (this->q_(i) - prev_position_(i)) / dt;
+  //       filtered_velocity_(i) = alpha_ * velocity_(i) + (1.0 - alpha_) * prev_filtered_velocity_(i);}
+  //   prev_position_ = this->q_;
+  //   prev_filtered_velocity_ = filtered_velocity_;}
 
   void CartesianImpedanceControllerRos::controllerConfigCb(const cartesian_impedance_controller::msg::ControllerConfig::SharedPtr msg){
     auto node = get_node();
