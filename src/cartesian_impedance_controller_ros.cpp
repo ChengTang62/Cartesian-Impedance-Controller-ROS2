@@ -155,6 +155,53 @@ namespace cartesian_impedance_controller
       if (this->n_joints_ < 6){RCLCPP_WARN(node->get_logger(), "Number of joints is below 6. Functions might be limited.");}
       if (this->n_joints_ < 7){RCLCPP_WARN(node->get_logger(), "Number of joints is below 7. No redundant joint for nullspace.");}
       this->tau_m_ = Eigen::VectorXd(this->n_joints_);
+
+
+
+
+
+
+      // Set fixed joint angles for testing
+      Eigen::VectorXd fixed_q(this->n_joints_); // Ensure the size matches the number of joints
+      fixed_q << 0, 0, 0, -0.6, 0, 0, 0; // Example fixed joint angles
+
+      // Log fixed joint angles
+      std::ostringstream fixed_joint_log;
+      fixed_joint_log << "Fixed Joint Angles: [";
+      for (size_t i = 0; i < fixed_q.size(); ++i) {
+          fixed_joint_log << fixed_q[i];
+          if (i < fixed_q.size() - 1) {
+              fixed_joint_log << ", ";
+          }
+      }
+      fixed_joint_log << "]";
+      RCLCPP_INFO(node->get_logger(), fixed_joint_log.str().c_str());
+
+      // Compute gravity compensation torques for fixed joint angles
+      Eigen::VectorXd tau_gravity_fixed(this->n_joints_);
+      try {
+          tau_gravity_fixed = this->rbdyn_wrapper_.computeGravity(fixed_q);
+      } catch (const std::exception &e) {
+          RCLCPP_ERROR(node->get_logger(), "Failed to compute gravity compensation torques for fixed joint angles: %s", e.what());
+          return controller_interface::CallbackReturn::FAILURE;
+      }
+
+      // Log gravity compensation torques for fixed joint angles
+      std::ostringstream gravity_fixed_log;
+      gravity_fixed_log << "Gravity Compensation Torques (Fixed): [";
+      for (size_t i = 0; i < tau_gravity_fixed.size(); ++i) {
+          gravity_fixed_log << tau_gravity_fixed[i];
+          if (i < tau_gravity_fixed.size() - 1) {
+              gravity_fixed_log << ", ";
+          }
+      }
+      gravity_fixed_log << "]";
+      RCLCPP_INFO(node->get_logger(), gravity_fixed_log.str().c_str());
+
+
+
+
+      
       bool enable_trajectories = true;
       RCLCPP_INFO(node->get_logger(), "Initializing trajectories.");
       //TODO: implement dynamic reconfigure
@@ -226,7 +273,17 @@ controller_interface::InterfaceConfiguration CartesianImpedanceControllerRos::st
   controller_interface::return_type CartesianImpedanceControllerRos::update(const rclcpp::Time & /*time*/, const rclcpp::Duration &period){
     if (this->traj_running_){trajUpdate();}
     this->updateState();
+    auto node = get_node();
+
+    Eigen::VectorXd tau_gravity(this->n_joints_);
+    try {
+        tau_gravity = this->rbdyn_wrapper_.computeGravity(this->q_);
+    } catch (const std::exception &e) {
+        RCLCPP_ERROR(node->get_logger(), "Failed to compute gravity compensation torques for actual joint angles: %s", e.what());
+        return controller_interface::return_type::ERROR;
+    }
     this->calculateCommandedTorques();
+    this->tau_c_ += tau_gravity;
     for (size_t i = 0; i < this->n_joints_; ++i){
       this->joint_command_handles_[i].set_value(this->tau_c_(i));}
     publishMsgsAndTf();
@@ -514,4 +571,5 @@ void CartesianImpedanceControllerRos::updateState() {
             this->traj_as_goal_->succeed(result);}
         this->traj_running_ = false;}}
 } // namespace cartesian_impedance_controller
+
 PLUGINLIB_EXPORT_CLASS(cartesian_impedance_controller::CartesianImpedanceControllerRos, controller_interface::ControllerInterface)

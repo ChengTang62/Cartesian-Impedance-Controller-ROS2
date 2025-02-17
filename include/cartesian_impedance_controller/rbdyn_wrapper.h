@@ -4,6 +4,7 @@
 
 #include <RBDyn/FK.h>
 #include <RBDyn/FV.h>
+#include <RBDyn/ID.h>
 #include <RBDyn/Jacobian.h>
 #include <SpaceVecAlg/Conversions.h>
 #include <RBDyn/parsers/urdf.h>
@@ -40,6 +41,35 @@ public:
       }
     }
     throw std::runtime_error("Index for end effector link " + end_effector + " not found in URDF. Aborting.");
+  }
+
+  Eigen::VectorXd computeGravity(const Eigen::VectorXd &q)
+  {
+    // Zero out the MultiBodyConfig
+    _rbdyn_urdf.mbc.zero(_rbdyn_urdf.mb);
+
+    // Update the joint positions
+    for (size_t i = 0; i < _rbd_indices.size(); i++)
+    {
+      size_t rbd_index = _rbd_indices[i];
+      _rbdyn_urdf.mbc.q[rbd_index][0] = _wrap_angle(q[i]);
+    }
+    _rbdyn_urdf.mbc.gravity = Eigen::Vector3d(0.0, 0.0, -9.81); 
+    // Perform forward kinematics
+    rbd::forwardKinematics(_rbdyn_urdf.mb, _rbdyn_urdf.mbc);
+
+    // Compute gravity torques
+    rbd::InverseDynamics id(_rbdyn_urdf.mb);
+    id.inverseDynamics(_rbdyn_urdf.mb, _rbdyn_urdf.mbc);
+
+    // Extract torques for the controlled joints
+    Eigen::VectorXd gravity_torques(_rbd_indices.size());
+    for (size_t i = 0; i < _rbd_indices.size(); i++)
+    {
+        gravity_torques[i] = _rbdyn_urdf.mbc.jointTorque[_rbd_indices[i]][0];
+    }
+
+    return gravity_torques;
   }
 
   Eigen::MatrixXd jacobian(const Eigen::VectorXd &q, const Eigen::VectorXd &dq)
